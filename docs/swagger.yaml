@@ -1,0 +1,464 @@
+basePath: /api/v1
+definitions:
+  dto.BusinessRequest:
+    properties:
+      address1:
+        example: 53rd John Doe Street
+        type: string
+      address2:
+        example: Johnnyslvania
+        type: string
+      address3:
+        example: ""
+        type: string
+      categories:
+        description: 'comma separated ex: (japanese,venues,etc). to make it empty,
+          just do ""'
+        example: venues,adult,antiques
+        type: string
+      city:
+        example: Lincoln
+        type: string
+      close_at:
+        example: "2100"
+        type: string
+      country:
+        example: US
+        type: string
+      image_url:
+        example: https://john.doe/image.png
+        type: string
+      latitude:
+        example: 37.234332396
+        type: number
+      longitude:
+        example: -115.80666344
+        type: number
+      name:
+        example: John Doe John Store
+        type: string
+      open_at:
+        example: "1100"
+        type: string
+      phone:
+        example: "+1938485823"
+        type: string
+      price:
+        example: $$$$
+        type: string
+      state:
+        example: Nebraska
+        type: string
+      transactions:
+        description: 'comma separated ex: (pickup,delivery,etc). to make it empty,
+          just do ""'
+        example: pickup,delivery
+        type: string
+      zip_code:
+        example: 68501
+        type: integer
+    type: object
+  dto.BusinessResponse:
+    properties:
+      alias:
+        type: string
+      categories:
+        items:
+          $ref: '#/definitions/dto.Category'
+        type: array
+      close_at:
+        type: string
+      coordinates:
+        $ref: '#/definitions/dto.Coordinates'
+      id:
+        type: string
+      imageURL:
+        type: string
+      is_open:
+        type: boolean
+      location:
+        $ref: '#/definitions/dto.Location'
+      name:
+        type: string
+      open_at:
+        type: string
+      phone:
+        type: string
+      price:
+        type: string
+      transactions:
+        items:
+          type: string
+        type: array
+      url:
+        type: string
+    type: object
+  dto.Category:
+    properties:
+      alias:
+        type: string
+      title:
+        type: string
+    type: object
+  dto.Coordinates:
+    properties:
+      latitude:
+        type: number
+      longitude:
+        type: number
+    type: object
+  dto.Location:
+    properties:
+      address1:
+        type: string
+      address2:
+        type: string
+      address3:
+        type: string
+      city:
+        type: string
+      country:
+        type: string
+      display_address:
+        items:
+          type: string
+        type: array
+      state:
+        type: string
+      zip_code:
+        type: string
+    type: object
+  dto.Metadata:
+    properties:
+      current_time:
+        type: string
+      page:
+        type: integer
+      per_page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  dto.Transaction:
+    properties:
+      type:
+        type: string
+    type: object
+  handler.createBusiness:
+    type: object
+  handler.getAllCategoryResponse:
+    type: object
+  handler.getAllTransactionResponse:
+    type: object
+  handler.getBusiness:
+    type: object
+  handler.getBusinessesResponse:
+    type: object
+info:
+  contact: {}
+  title: 62-Teknologi Back-end Test
+  version: "1.0"
+paths:
+  /businesses:
+    post:
+      description: Add new business to database
+      parameters:
+      - description: data required to create a new business
+        in: body
+        name: Body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.BusinessRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.createBusiness'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusiness'
+            - properties:
+                error:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusiness'
+            - properties:
+                error:
+                  type: string
+              type: object
+      summary: Create business
+      tags:
+      - businesses
+  /businesses/{business_id_or_alias}:
+    delete:
+      description: Delete a single business by ID or alias
+      parameters:
+      - description: business ID or alias
+        in: path
+        name: business_id_or_alias
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusiness'
+            - properties:
+                error:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusiness'
+            - properties:
+                error:
+                  type: string
+              type: object
+      summary: Delete business
+      tags:
+      - businesses
+    get:
+      description: Get a single business by ID or alias
+      parameters:
+      - description: business ID or alias
+        in: path
+        name: business_id_or_alias
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusiness'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.BusinessResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusiness'
+            - properties:
+                error:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusiness'
+            - properties:
+                error:
+                  type: string
+              type: object
+      summary: Get business
+      tags:
+      - businesses
+    put:
+      description: Update business data by ID or alias
+      parameters:
+      - description: business ID or alias
+        in: path
+        name: business_id_or_alias
+        required: true
+        type: string
+      - description: data required to update business data
+        in: body
+        name: Body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.BusinessRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusiness'
+            - properties:
+                error:
+                  type: string
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusiness'
+            - properties:
+                error:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusiness'
+            - properties:
+                error:
+                  type: string
+              type: object
+      summary: Update business
+      tags:
+      - businesses
+  /businesses/search:
+    get:
+      description: Search for businesses by provided parameters
+      parameters:
+      - description: business location (ex:jakarta/roma/new york/etc)
+        in: query
+        name: location
+        required: true
+        type: string
+      - description: business categories. can be multiple. comma separated (ex:italian,japanese,etc)
+        in: query
+        name: categories
+        type: string
+      - description: business transaction type. can be multiple. comma separated (ex:delivery,pickup,etc)
+        in: query
+        name: transactions
+        type: string
+      - description: is the business open right now. open_now and open_at can't be
+          used together
+        in: query
+        name: open_now
+        type: boolean
+      - default: 5
+        description: number of business(es) to display per page
+        in: query
+        minimum: 1
+        name: per_page
+        type: integer
+      - default: 1
+        description: page number you want to see
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: 'will businesses open at given time. format: 24h, between 0000
+          to 2359. open_now and open_at can''t be used together'
+        in: query
+        maxLength: 4
+        minLength: 4
+        name: open_at
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusinessesResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.BusinessResponse'
+                  type: array
+                metadata:
+                  $ref: '#/definitions/dto.Metadata'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusinessesResponse'
+            - properties:
+                error:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getBusinessesResponse'
+            - properties:
+                error:
+                  type: string
+              type: object
+      summary: Search businesses
+      tags:
+      - businesses
+  /categories:
+    get:
+      description: List all available categories
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getAllCategoryResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.Category'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getAllCategoryResponse'
+            - properties:
+                error:
+                  type: string
+              type: object
+      summary: List categories
+      tags:
+      - categories
+  /transactions:
+    get:
+      description: List all supported transaction types
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getAllTransactionResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.Transaction'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getAllTransactionResponse'
+            - properties:
+                error:
+                  type: string
+              type: object
+      summary: List transactions
+      tags:
+      - transactions
+swagger: "2.0"

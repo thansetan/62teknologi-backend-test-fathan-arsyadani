@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/thansetan/62teknologi-backend-test-fathan-arsyadani/internal/app/delivery/dto"
@@ -29,13 +30,18 @@ type getAllTransactionResponse helpers.Response[[]dto.Transaction]
 //
 //	@Router			/transactions [get]
 func (h *transactionHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	res := helpers.New[[]dto.Transaction]().ContentType("application/json")
+	resp := helpers.New[[]dto.Transaction]()
 	ctx := r.Context()
-	data, errUC := h.uc.GetAll(ctx)
-	if errUC != nil {
-		res.Code(errUC.Code).Error(errUC.Error).Send(w)
+	data, err := h.uc.GetAll(ctx)
+	if err != nil {
+		var errUC helpers.ResponseError
+		if errors.As(err, &errUC) {
+			resp.Code(errUC.Code()).Error(errUC).Send(w)
+		} else {
+			resp.Code(http.StatusInternalServerError).Error(helpers.ErrInternal).Send(w)
+		}
 		return
 	}
 
-	res.Code(http.StatusOK).Data(data).Send(w)
+	resp.Code(http.StatusOK).Data(data).Send(w)
 }

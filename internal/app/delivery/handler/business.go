@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -18,7 +20,7 @@ func NewBusinessHandler(uc usecase.BusinessUsecase) *businessHandler {
 	return &businessHandler{uc}
 }
 
-type createBusiness helpers.Response[string]
+type createBusiness helpers.Response[dto.CreateBusinessResponse]
 
 // CreateBusiness godoc
 //
@@ -27,13 +29,13 @@ type createBusiness helpers.Response[string]
 //	@Tags			businesses
 //	@Param			Body	body	dto.BusinessRequest	true	"data required to create a new business"
 //	@Produce		json
-//	@Success		200	{object}	createBusiness{data=string}
+//	@Success		200	{object}	createBusiness{data=dto.CreateBusinessResponse}
 //	@Failure		400	{object}	getBusiness{error=string}
 //	@Failure		500	{object}	getBusiness{error=string}
 //	@Router			/businesses [post]
 func (h *businessHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var reqData dto.BusinessRequest
-	resp := helpers.New[string]().ContentType("application/json")
+	resp := helpers.New[*dto.CreateBusinessResponse]()
 
 	err := json.NewDecoder(r.Body).Decode(&reqData)
 	if err != nil {
@@ -42,13 +44,23 @@ func (h *businessHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	id, errUC := h.uc.Create(ctx, reqData)
-	if errUC != nil {
-		resp.Code(errUC.Code).Error(errUC.Error).Send(w)
+	data, err := h.uc.Create(ctx, reqData)
+	if err != nil {
+		var errUC helpers.ResponseError
+		if errors.As(err, &errUC) {
+			var errValidation helpers.ValidationError
+			if errors.As(errUC.Err, &errValidation) {
+				resp.Code(errUC.Code()).Errors(errValidation.ErrSlice()).Send(w)
+			} else {
+				resp.Code(errUC.Code()).Error(errUC).Send(w)
+			}
+		} else {
+			resp.Code(http.StatusInternalServerError).Error(helpers.ErrInternal).Send(w)
+		}
 		return
 	}
 
-	resp.Code(http.StatusCreated).Data(id).Send(w)
+	resp.Code(http.StatusCreated).Data(&data).Send(w)
 }
 
 // UpdateBusiness godoc
@@ -66,7 +78,7 @@ func (h *businessHandler) Create(w http.ResponseWriter, r *http.Request) {
 //	@Router			/businesses/{business_id_or_alias} [put]
 func (h *businessHandler) Update(w http.ResponseWriter, r *http.Request) {
 	var reqData dto.BusinessRequest
-	resp := helpers.New[any]().ContentType("application/json")
+	resp := helpers.New[error]()
 
 	err := json.NewDecoder(r.Body).Decode(&reqData)
 	if err != nil {
@@ -77,9 +89,19 @@ func (h *businessHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idOrAlias := mux.Vars(r)["id_or_alias"]
 	ctx := r.Context()
 
-	errUC := h.uc.Update(ctx, idOrAlias, reqData)
-	if errUC != nil {
-		resp.Code(errUC.Code).Error(errUC.Error).Send(w)
+	err = h.uc.Update(ctx, idOrAlias, reqData)
+	if err != nil {
+		var errUC helpers.ResponseError
+		if errors.As(err, &errUC) {
+			var errValidation helpers.ValidationError
+			if errors.As(errUC.Err, &errValidation) {
+				resp.Code(errUC.Code()).Errors(errValidation.ErrSlice()).Send(w)
+			} else {
+				resp.Code(errUC.Code()).Error(errUC).Send(w)
+			}
+		} else {
+			resp.Code(http.StatusInternalServerError).Error(helpers.ErrInternal).Send(w)
+		}
 		return
 	}
 
@@ -100,13 +122,18 @@ type getBusiness helpers.Response[dto.BusinessResponse]
 //	@Failure		500	{object}	getBusiness{error=string}
 //	@Router			/businesses/{business_id_or_alias} [get]
 func (h *businessHandler) GetBusiness(w http.ResponseWriter, r *http.Request) {
-	resp := helpers.New[*dto.BusinessResponse]().ContentType("application/json")
+	resp := helpers.New[*dto.BusinessResponse]()
 	idOrAlias := mux.Vars(r)["id_or_alias"]
 
-	ctx := r.Context()
-	business, errUC := h.uc.GetBusiness(ctx, idOrAlias)
-	if errUC != nil {
-		resp.Code(errUC.Code).Error(errUC.Error).Send(w)
+	ctx := context.WithValue(r.Context(), "host", r.Host)
+	business, err := h.uc.GetBusiness(ctx, idOrAlias)
+	if err != nil {
+		var errUC helpers.ResponseError
+		if errors.As(err, &errUC) {
+			resp.Code(errUC.Code()).Error(errUC).Send(w)
+		} else {
+			resp.Code(http.StatusInternalServerError).Error(helpers.ErrInternal).Send(w)
+		}
 		return
 	}
 
@@ -124,13 +151,18 @@ func (h *businessHandler) GetBusiness(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500	{object}	getBusiness{error=string}
 //	@Router			/businesses/{business_id_or_alias} [delete]
 func (h *businessHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	resp := helpers.New[any]().ContentType("application/json")
+	resp := helpers.New[error]()
 	idOrAlias := mux.Vars(r)["id_or_alias"]
 	ctx := r.Context()
 
-	errUC := h.uc.Delete(ctx, idOrAlias)
-	if errUC != nil {
-		resp.Code(errUC.Code).Error(errUC.Error).Send(w)
+	err := h.uc.Delete(ctx, idOrAlias)
+	if err != nil {
+		var errUC helpers.ResponseError
+		if errors.As(err, &errUC) {
+			resp.Code(errUC.Code()).Error(errUC).Send(w)
+		} else {
+			resp.Code(http.StatusInternalServerError).Error(helpers.ErrInternal).Send(w)
+		}
 		return
 	}
 
@@ -157,19 +189,30 @@ type getBusinessesResponse helpers.Response[[]dto.BusinessResponse]
 //	@Router			/businesses/search [get]
 func (h *businessHandler) GetBusinesses(w http.ResponseWriter, r *http.Request) {
 	queryParams := dto.BusinessQueryParams{}
-	resp := helpers.New[[]dto.BusinessResponse]()
+	resp := helpers.New[*[]dto.BusinessResponse]()
+
 	err := helpers.ParseQuery(r.URL.Query(), &queryParams)
 	if err != nil {
 		resp.Code(http.StatusBadRequest).Error(err).Send(w)
 		return
 	}
 
-	ctx := r.Context()
-	data, errUC := h.uc.GetBusinesses(ctx, queryParams)
-	if errUC != nil {
-		resp.Code(errUC.Code).Error(errUC.Error).Send(w)
+	ctx := context.WithValue(r.Context(), "host", r.Host)
+	data, err := h.uc.GetBusinesses(ctx, queryParams)
+	if err != nil {
+		var errUC helpers.ResponseError
+		if errors.As(err, &errUC) {
+			var errValidation helpers.ValidationError
+			if errors.As(errUC.Err, &errValidation) {
+				resp.Code(errUC.Code()).Errors(errValidation.ErrSlice()).Send(w)
+			} else {
+				resp.Code(errUC.Code()).Error(errUC).Send(w)
+			}
+		} else {
+			resp.Code(http.StatusInternalServerError).Error(helpers.ErrInternal).Send(w)
+		}
 		return
 	}
 
-	resp.Code(http.StatusOK).Metadata(data.Metadata).Data(data.Businesses).Send(w)
+	resp.Code(http.StatusOK).Metadata(data.Metadata).Data(&data.Businesses).Send(w)
 }

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gosimple/slug"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/segmentio/ksuid"
 	"github.com/thansetan/62teknologi-backend-test-fathan-arsyadani/internal/app/delivery/dto"
 	"github.com/thansetan/62teknologi-backend-test-fathan-arsyadani/internal/app/repository"
@@ -21,11 +22,11 @@ import (
 )
 
 type BusinessUsecase interface {
-	Create(context.Context, dto.BusinessRequest) (string, *helpers.ResponseError)
-	Update(context.Context, string, dto.BusinessRequest) *helpers.ResponseError
-	GetBusiness(context.Context, string) (dto.BusinessResponse, *helpers.ResponseError)
-	Delete(context.Context, string) *helpers.ResponseError
-	GetBusinesses(context.Context, dto.BusinessQueryParams) (dto.BusinessesResponse, *helpers.ResponseError)
+	Create(context.Context, dto.BusinessRequest) (dto.CreateBusinessResponse, error)
+	Update(context.Context, string, dto.BusinessRequest) error
+	GetBusiness(context.Context, string) (dto.BusinessResponse, error)
+	Delete(context.Context, string) error
+	GetBusinesses(context.Context, dto.BusinessQueryParams) (dto.BusinessesResponse, error)
 }
 
 type businessUsecase struct {
@@ -40,9 +41,10 @@ func NewBusinessUsecase(businessRepo repository.BusinessRepository, transactionR
 	return &businessUsecase{businessRepo, transactionRepo, categoryRepo, db, logger}
 }
 
-func (uc *businessUsecase) Create(ctx context.Context, data dto.BusinessRequest) (string, *helpers.ResponseError) {
+func (uc *businessUsecase) Create(ctx context.Context, data dto.BusinessRequest) (dto.CreateBusinessResponse, error) {
+	var res dto.CreateBusinessResponse
 	if err := data.ValidateCreate(); err != nil {
-		return "", helpers.NewError(err, http.StatusBadRequest)
+		return res, helpers.NewError(helpers.NewValdiationError(err), http.StatusBadRequest)
 	}
 
 	var (
@@ -56,11 +58,11 @@ func (uc *businessUsecase) Create(ctx context.Context, data dto.BusinessRequest)
 		categoriesData, err = uc.categoryRepo.FindSomeByAlias(ctx, categories)
 		if err != nil {
 			uc.logger.Error("Business Usecase", "function", helpers.GetFunctionName(), "err", err)
-			return "", helpers.NewError(err, http.StatusInternalServerError)
+			return res, helpers.NewError(helpers.ErrInternal, http.StatusInternalServerError)
 		}
 
 		if *data.Categories != "" && len(categories) != len(categoriesData) {
-			return "", helpers.NewError(helpers.ErrCategories, http.StatusBadRequest)
+			return res, helpers.NewError(helpers.ErrCategories, http.StatusBadRequest)
 		}
 
 	}
@@ -70,11 +72,11 @@ func (uc *businessUsecase) Create(ctx context.Context, data dto.BusinessRequest)
 		transactionsData, err = uc.transactionRepo.FindSome(ctx, transactions)
 		if err != nil {
 			uc.logger.Error("Business Usecase", "function", helpers.GetFunctionName(), "err", err)
-			return "", helpers.NewError(err, http.StatusInternalServerError)
+			return res, helpers.NewError(helpers.ErrInternal, http.StatusInternalServerError)
 		}
 
 		if *data.Transactions != "" && len(transactions) != len(transactionsData) {
-			return "", helpers.NewError(helpers.ErrTransactions, http.StatusBadRequest)
+			return res, helpers.NewError(helpers.ErrTransactions, http.StatusBadRequest)
 		}
 	}
 
@@ -107,15 +109,21 @@ func (uc *businessUsecase) Create(ctx context.Context, data dto.BusinessRequest)
 	err = uc.businessRepo.Create(ctx, business)
 	if err != nil {
 		uc.logger.Error("Business Usecase", "function", helpers.GetFunctionName(), "err", err)
-		return "", helpers.NewError(err, http.StatusInternalServerError)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return res, helpers.NewError(errors.New("the provided phone number is already used by another business"), http.StatusConflict)
+		}
+		return res, helpers.NewError(helpers.ErrInternal, http.StatusInternalServerError)
 	}
 
-	return business.ID, nil
+	res.Alias = business.Alias
+
+	return res, nil
 }
 
-func (uc *businessUsecase) Update(ctx context.Context, id string, data dto.BusinessRequest) *helpers.ResponseError {
+func (uc *businessUsecase) Update(ctx context.Context, id string, data dto.BusinessRequest) error {
 	if err := data.ValidateUpdate(); err != nil {
-		return helpers.NewError(err, http.StatusBadRequest)
+		return helpers.NewError(helpers.NewValdiationError(err), http.StatusBadRequest)
 	}
 
 	var (
@@ -129,7 +137,7 @@ func (uc *businessUsecase) Update(ctx context.Context, id string, data dto.Busin
 		categoriesData, err = uc.categoryRepo.FindSomeByAlias(ctx, categories)
 		if err != nil {
 			uc.logger.Error("Business Usecase", "function", helpers.GetFunctionName(), "err", err)
-			return helpers.NewError(err, http.StatusInternalServerError)
+			return helpers.NewError(helpers.ErrInternal, http.StatusInternalServerError)
 		}
 
 		if *data.Categories != "" && len(categories) != len(categoriesData) {
@@ -143,7 +151,7 @@ func (uc *businessUsecase) Update(ctx context.Context, id string, data dto.Busin
 		transactionsData, err = uc.transactionRepo.FindSome(ctx, transactions)
 		if err != nil {
 			uc.logger.Error("Business Usecase", "function", helpers.GetFunctionName(), "err", err)
-			return helpers.NewError(err, http.StatusInternalServerError)
+			return helpers.NewError(helpers.ErrInternal, http.StatusInternalServerError)
 		}
 
 		if *data.Transactions != "" && len(transactions) != len(transactionsData) {
@@ -155,9 +163,9 @@ func (uc *businessUsecase) Update(ctx context.Context, id string, data dto.Busin
 	if err != nil {
 		uc.logger.Error("Business Usecase", "function", helpers.GetFunctionName(), "err", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return helpers.NewError(err, http.StatusNotFound)
+			return helpers.NewError(helpers.ErrBusinessNotFound, http.StatusNotFound)
 		}
-		return helpers.NewError(err, http.StatusInternalServerError)
+		return helpers.NewError(helpers.ErrInternal, http.StatusInternalServerError)
 	}
 
 	business.Name = data.Name
@@ -185,51 +193,52 @@ func (uc *businessUsecase) Update(ctx context.Context, id string, data dto.Busin
 	err = uc.businessRepo.Update(ctx, business)
 	if err != nil {
 		uc.logger.Error("Business Usecase", "function", helpers.GetFunctionName(), "err", err)
-		return helpers.NewError(err, http.StatusInternalServerError)
+		return helpers.NewError(helpers.ErrInternal, http.StatusInternalServerError)
 	}
 
 	return nil
 }
 
-func (uc *businessUsecase) GetBusiness(ctx context.Context, id string) (dto.BusinessResponse, *helpers.ResponseError) {
+func (uc *businessUsecase) GetBusiness(ctx context.Context, id string) (dto.BusinessResponse, error) {
 	var res dto.BusinessResponse
 	business, err := uc.businessRepo.FindByIDOrAlias(ctx, id)
 	if err != nil {
 		uc.logger.Error("Business Usecase", "function", helpers.GetFunctionName(), "err", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return res, helpers.NewError(err, http.StatusNotFound)
+			return res, helpers.NewError(helpers.ErrBusinessNotFound, http.StatusNotFound)
 		}
-		return res, helpers.NewError(err, http.StatusInternalServerError)
+		return res, helpers.NewError(helpers.ErrInternal, http.StatusInternalServerError)
 	}
 
-	businessModelToDto(&res, business, false, nil)
+	businessModelToDto(ctx, &res, business, false, nil)
 
 	return res, nil
 }
 
-func (uc *businessUsecase) Delete(ctx context.Context, id string) *helpers.ResponseError {
+func (uc *businessUsecase) Delete(ctx context.Context, id string) error {
 	business, err := uc.businessRepo.FindByIDOrAlias(ctx, id)
 	if err != nil {
 		uc.logger.Error("Business Usecase", "function", helpers.GetFunctionName(), "err", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return helpers.NewError(err, http.StatusNotFound)
+			return helpers.NewError(helpers.ErrBusinessNotFound, http.StatusNotFound)
 		}
-		return helpers.NewError(err, http.StatusInternalServerError)
+		return helpers.NewError(helpers.ErrInternal, http.StatusInternalServerError)
 	}
 
 	err = uc.businessRepo.Delete(ctx, business)
 	if err != nil {
 		uc.logger.Error("Business Usecase", "function", helpers.GetFunctionName(), "err", err)
-		return helpers.NewError(err, http.StatusInternalServerError)
+		return helpers.NewError(helpers.ErrInternal, http.StatusInternalServerError)
 	}
 
 	return nil
 }
 
-func (uc *businessUsecase) GetBusinesses(ctx context.Context, params dto.BusinessQueryParams) (dto.BusinessesResponse, *helpers.ResponseError) {
+func (uc *businessUsecase) GetBusinesses(ctx context.Context, params dto.BusinessQueryParams) (dto.BusinessesResponse, error) {
 	var data dto.BusinessesResponse
 	if err := params.Validate(); err != nil {
-		return data, helpers.NewError(err, http.StatusBadRequest)
+		return data, helpers.NewError(helpers.NewValdiationError(err), http.StatusBadRequest)
+
 	}
 
 	if params.Page <= 0 {
@@ -272,13 +281,13 @@ func (uc *businessUsecase) GetBusinesses(ctx context.Context, params dto.Busines
 	businesses, total, err := uc.businessRepo.FindByParams(ctx, query)
 	if err != nil {
 		uc.logger.Error("Business Usecase", "function", helpers.GetFunctionName(), "err", err)
-		return data, helpers.NewError(err, http.StatusInternalServerError)
+		return data, helpers.NewError(helpers.ErrInternal, http.StatusInternalServerError)
 	}
 
 	businessesData := make([]dto.BusinessResponse, len(businesses))
 	for i, business := range businesses {
 		b := dto.BusinessResponse{}
-		businessModelToDto(&b, business, true, &now)
+		businessModelToDto(ctx, &b, business, true, &now)
 		businessesData[i] = b
 	}
 
@@ -292,7 +301,7 @@ func (uc *businessUsecase) GetBusinesses(ctx context.Context, params dto.Busines
 	return data, nil
 }
 
-func businessModelToDto(dst *dto.BusinessResponse, src domain.Business, useIsOpen bool, currentTime *time.Time) {
+func businessModelToDto(ctx context.Context, dst *dto.BusinessResponse, src domain.Business, useIsOpen bool, currentTime *time.Time) {
 	dst.ID = src.ID
 	dst.Alias = src.Alias
 	dst.Name = src.Name
@@ -306,7 +315,7 @@ func businessModelToDto(dst *dto.BusinessResponse, src domain.Business, useIsOpe
 		dst.OpenAt = src.OpenAt
 		dst.CloseAt = src.CloseAt
 	}
-	dst.URL = fmt.Sprintf("http://localhost:8080/api/v1/businesses/%s", src.Alias)
+	dst.URL = fmt.Sprintf("http://%s/api/v1/businesses/%s", ctx.Value("host"), src.Alias)
 	dst.Categories = make([]dto.Category, len(src.Categories))
 	for i, category := range src.Categories {
 		dst.Categories[i] = dto.Category{

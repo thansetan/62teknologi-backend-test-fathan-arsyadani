@@ -10,9 +10,10 @@ type Sender interface {
 }
 
 type Response[X any] struct {
-	Error    string `json:"error,omitempty"`
-	Data     X      `json:"data,omitempty"`
-	Metadata any    `json:"metadata,omitempty"`
+	Error    string   `json:"error,omitempty"`
+	Errors   []string `json:"errors,omitempty"`
+	Data     X        `json:"data,omitempty"`
+	Metadata any      `json:"metadata,omitempty"`
 }
 
 type wrapper[T any] struct {
@@ -48,6 +49,10 @@ func (w *wrapper[T]) Error(err error) Sender {
 	return w
 }
 
+func (w *wrapper[T]) Errors(errs []string) Sender {
+	w.response.Errors = errs
+	return w
+}
 func (w *wrapper[T]) ContentType(contentType string) *wrapper[T] {
 	w.contentType = contentType
 	return w

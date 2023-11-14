@@ -107,6 +107,16 @@ definitions:
       longitude:
         type: number
     type: object
+  dto.CreateBusinessResponse:
+    properties:
+      business_alias:
+        type: string
+    type: object
+  dto.CreateCategoryRequest:
+    properties:
+      title:
+        type: string
+    type: object
   dto.Location:
     properties:
       address1:
@@ -181,7 +191,7 @@ paths:
             - $ref: '#/definitions/handler.createBusiness'
             - properties:
                 data:
-                  type: string
+                  $ref: '#/definitions/dto.CreateBusinessResponse'
               type: object
         "400":
           description: Bad Request
@@ -406,6 +416,41 @@ paths:
   /categories:
     get:
       description: List all available categories
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getAllCategoryResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.Category'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.getAllCategoryResponse'
+            - properties:
+                error:
+                  type: string
+              type: object
+      summary: List categories
+      tags:
+      - categories
+    post:
+      description: List all available categories
+      parameters:
+      - description: data required to create new category
+        in: body
+        name: Body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCategoryRequest'
       produces:
       - application/json
       responses:

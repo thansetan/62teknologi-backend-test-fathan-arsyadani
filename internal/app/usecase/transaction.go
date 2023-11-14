@@ -11,7 +11,7 @@ import (
 )
 
 type TransactionUsecase interface {
-	GetAll(ctx context.Context) ([]dto.Transaction, *helpers.ResponseError)
+	GetAll(ctx context.Context) ([]dto.Transaction, error)
 }
 
 type transactionUsecase struct {
@@ -23,7 +23,7 @@ func NewTransactionUsecase(repo repository.TransactionRepository, logger *slog.L
 	return &transactionUsecase{repo, logger}
 }
 
-func (uc *transactionUsecase) GetAll(ctx context.Context) ([]dto.Transaction, *helpers.ResponseError) {
+func (uc *transactionUsecase) GetAll(ctx context.Context) ([]dto.Transaction, error) {
 	transactions, err := uc.repo.FindAll(ctx)
 	if err != nil {
 		uc.logger.Error("Transaction Usecase", "function", helpers.GetFunctionName(), "err", err)

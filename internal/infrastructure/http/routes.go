@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,27 +19,31 @@ type App struct {
 	db     *gorm.DB
 	host   string
 	port   int
-	r      *mux.Router
 	logger *slog.Logger
+	server *http.Server
 }
 
 func New(db *gorm.DB, config config.App, logger *slog.Logger) *App {
-	r := mux.NewRouter()
-	return &App{db, config.Host, config.Port, r, logger}
+	return &App{
+		db:     db,
+		host:   config.Host,
+		port:   config.Port,
+		logger: logger,
+	}
 }
 
 func (app *App) Start() error {
+	r := mux.NewRouter()
+	r.Use(handlers.RecoveryHandler(handlers.PrintRecoveryStack(true)))
 
-	app.r.Use(handlers.RecoveryHandler(handlers.PrintRecoveryStack(true)))
-
-	app.r.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
+	r.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
 		httpSwagger.URL("/swagger/doc.json"),
 		httpSwagger.DeepLinking(true),
 		httpSwagger.DocExpansion("none"),
 		httpSwagger.DomID("swagger-ui"),
 	)).Methods(http.MethodGet)
 
-	api := app.r.PathPrefix("/api/v1").Subrouter()
+	api := r.PathPrefix("/api/v1").Subrouter()
 	api.Use(middlewares.LoggingMiddleware)
 	{
 		categories := api.PathPrefix("/categories").Subrouter()
@@ -57,5 +62,14 @@ func (app *App) Start() error {
 
 	app.logger.Info("Starting server", "host", app.host, "address", app.port)
 
-	return http.ListenAndServe(fmt.Sprintf("%s:%d", app.host, app.port), app.r)
+	app.server = &http.Server{
+		Handler: r,
+		Addr:    fmt.Sprintf("%s:%d", app.host, app.port),
+	}
+
+	return app.server.ListenAndServe()
+}
+
+func (app *App) Shutdown(ctx context.Context) error {
+	return app.server.Shutdown(ctx)
 }

@@ -21,7 +21,7 @@ func (w *statusResponseWriter) WriteHeader(status int) {
 }
 
 var logger = slog.New(tint.NewHandler(os.Stdout, &tint.Options{
-	TimeFormat: "02-Jan-2006 15:04 PM -0700",
+	TimeFormat: "02-Jan-2006 15:04 -0700",
 }))
 
 func LoggingMiddleware(next http.Handler) http.Handler {

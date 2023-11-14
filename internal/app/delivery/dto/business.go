@@ -41,7 +41,7 @@ func (b BusinessRequest) ValidateCreate() error {
 		validation.Field(&b.ZipCode, validation.Required),
 		validation.Field(&b.Country, validation.Required),
 		validation.Field(&b.State, validation.Required),
-		validation.Field(&b.Phone, validation.Required, is.E164),
+		validation.Field(&b.Phone, validation.Required, validation.Length(3, 15)),
 		validation.Field(&b.OpenAt, validation.By(isHour)),
 		validation.Field(&b.CloseAt, validation.By(isHour)),
 	)
@@ -58,14 +58,18 @@ func (b BusinessRequest) ValidateUpdate() error {
 	)
 }
 
+type CreateBusinessResponse struct {
+	Alias string `json:"business_alias"`
+}
+
 type BusinessQueryParams struct {
-	Location        string `query:"location"`   // city/country/state/address
-	Categories      string `query:"categories"` // comma separated(cat1,cat2,...,catn)
+	Location        string `query:"location" json:"location"` // city/country/state/address
+	Categories      string `query:"categories"`               // comma separated(cat1,cat2,...,catn)
 	Page            int    `query:"page"`
 	PerPage         int    `query:"per_page"`
-	TransactionType string `query:"transactions"` // comma separated(cat1,cat2,...,catn)
-	OpenNow         bool   `query:"open_now"`     // when set to false or not set, will return all
-	OpenAt          string `query:"open_at"`
+	TransactionType string `query:"transactions"`             // comma separated(cat1,cat2,...,catn)
+	OpenNow         bool   `query:"open_now" json:"open_now"` // when set to false or not set, will return all
+	OpenAt          string `query:"open_at" json:"open_at"`
 }
 
 func (p BusinessQueryParams) CategoriesList() []string {
@@ -131,7 +135,7 @@ func isLatitude(value any) error {
 		return errors.New("must be numeric")
 	}
 
-	if l < -90 || l > 90 {
+	if l <= -90 || l >= 90 {
 		return errors.New("must be between -90 and 90")
 	}
 
@@ -144,7 +148,7 @@ func isLongitude(value any) error {
 		return errors.New("must be numeric")
 	}
 
-	if l < -180 || l > 180 {
+	if l <= -180 || l >= 180 {
 		return errors.New("must be between -180 and 180")
 	}
 

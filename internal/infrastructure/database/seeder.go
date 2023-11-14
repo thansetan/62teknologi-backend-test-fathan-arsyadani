@@ -1,9 +1,7 @@
 package database
 
 import (
-	"io"
-	"os"
-	"path"
+	_ "embed"
 
 	"gorm.io/gorm"
 )
@@ -42,40 +40,15 @@ import (
 // 	return categories["categories"], nil
 // }
 
-var wd, _ = os.Getwd()
+//go:embed seeds/categories.sql
+var categories string
 
-func populateCategoryTable(db *gorm.DB, apiKey string) error {
-	sqlFile, err := os.Open(path.Join(wd, "migrations", "categories.sql"))
-	if err != nil {
+//go:embed seeds/transactions.sql
+var transactions string
+
+func populateTable(db *gorm.DB, queries string) error {
+	if err := db.Exec(queries).Error; err != nil {
 		return err
 	}
-
-	sql, err := io.ReadAll(sqlFile)
-	if err != nil {
-		return err
-	}
-
-	if err := db.Exec(string(sql)).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func populateTransactionTable(db *gorm.DB) error {
-	sqlFile, err := os.Open(path.Join(wd, "migrations", "transactions.sql"))
-	if err != nil {
-		return err
-	}
-
-	sql, err := io.ReadAll(sqlFile)
-	if err != nil {
-		return err
-	}
-
-	if err := db.Exec(string(sql)).Error; err != nil {
-		return err
-	}
-
 	return nil
 }

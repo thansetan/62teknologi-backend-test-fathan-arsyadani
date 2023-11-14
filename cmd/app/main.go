@@ -1,9 +1,16 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"net/http"
+	"os"
+	"os/signal"
+	"time"
+
 	_ "github.com/thansetan/62teknologi-backend-test-fathan-arsyadani/docs"
 	"github.com/thansetan/62teknologi-backend-test-fathan-arsyadani/internal/infrastructure/database"
-	"github.com/thansetan/62teknologi-backend-test-fathan-arsyadani/internal/infrastructure/http"
+	app "github.com/thansetan/62teknologi-backend-test-fathan-arsyadani/internal/infrastructure/http"
 	"github.com/thansetan/62teknologi-backend-test-fathan-arsyadani/internal/utils/config"
 	"github.com/thansetan/62teknologi-backend-test-fathan-arsyadani/internal/utils/logger"
 )
@@ -25,10 +32,26 @@ func main() {
 		panic(err)
 	}
 
-	app := http.New(db, config.App, logger)
+	app := app.New(db, config.App, logger)
 
-	if err := app.Start(); err != nil {
+	sigCh := make(chan os.Signal)
+	signal.Notify(sigCh, os.Interrupt)
+
+	go func() {
+		if err := app.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("Starting App", "error", err.Error())
+		}
+	}()
+
+	<-sigCh
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	logger.Info("Shutting Down App")
+	if err := app.Shutdown(ctx); err != nil {
 		panic(err)
 	}
 
+	logger.Info("App Terminated")
 }

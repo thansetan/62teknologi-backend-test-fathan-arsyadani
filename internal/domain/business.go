@@ -6,7 +6,7 @@ type Business struct {
 	Alias           string `gorm:"index"`
 	ImageURL        string
 	Price           string
-	Phone           string
+	Phone           string `gorm:"unique"`
 	OpenAt, CloseAt string `gorm:"index"`
 
 	Categories   []Category    `gorm:"many2many:businesses_categories;constraint:onDelete:CASCADE"`

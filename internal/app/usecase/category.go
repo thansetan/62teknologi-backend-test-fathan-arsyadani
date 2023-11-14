@@ -11,7 +11,7 @@ import (
 )
 
 type CategoryUsecase interface {
-	GetAll(context.Context) ([]dto.Category, *helpers.ResponseError)
+	GetAll(context.Context) ([]dto.Category, error)
 }
 
 type categoryUsecase struct {
@@ -23,7 +23,7 @@ func NewCategoryUsecase(repo repository.CategoryRepository, logger *slog.Logger)
 	return &categoryUsecase{repo, logger}
 }
 
-func (uc *categoryUsecase) GetAll(ctx context.Context) ([]dto.Category, *helpers.ResponseError) {
+func (uc *categoryUsecase) GetAll(ctx context.Context) ([]dto.Category, error) {
 	categories, err := uc.repo.FindAll(ctx)
 	if err != nil {
 		uc.logger.Error("Category Usecase", "function", helpers.GetFunctionName(), "err", err)

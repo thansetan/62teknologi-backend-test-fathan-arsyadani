@@ -29,7 +29,7 @@ func New(conf config.DB) (*gorm.DB, error) {
 	var count int64
 	db.Model(&domain.Category{}).Count(&count)
 	if count == 0 {
-		err = populateCategoryTable(db, conf.YelpApiKey)
+		err = populateTable(db, categories)
 		if err != nil {
 			return nil, err
 		}
@@ -38,7 +38,7 @@ func New(conf config.DB) (*gorm.DB, error) {
 	// populate the transaction table
 	db.Model(&domain.Transaction{}).Count(&count)
 	if count == 0 {
-		err = populateTransactionTable(db)
+		err = populateTable(db, transactions)
 		if err != nil {
 			return nil, err
 		}

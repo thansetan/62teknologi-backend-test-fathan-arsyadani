@@ -13,7 +13,6 @@ FROM alpine:latest
 
 WORKDIR /app
 COPY --from=builder /app/62teknologi-be ./62teknologi-be
-COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/.env ./.env
 
 EXPOSE 8080
